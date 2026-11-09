@@ -1,0 +1,28 @@
+{
+  "name": "api-produtos",
+  "version": "1.0.0",
+  "description": "API de produtos (Node.js + Express + SQL Server) com front-end em Bootstrap que consome a API via fetch",
+  "main": "api.js",
+  "scripts": {
+    "start": "node api.js",
+    "dev": "nodemon api.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "produtos",
+    "loja",
+    "api",
+    "express",
+    "bootstrap"
+  ],
+  "author": "Seu Nome",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "mssql": "^10.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
