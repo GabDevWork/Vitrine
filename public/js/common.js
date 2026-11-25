@@ -57,6 +57,28 @@ function listarProdutos(limite) {
     return requisicao(limite ? `${API_URL}?limit=${limite}` : API_URL);
 }
 
+// GET com filtros: recebe um objeto { q, marca, categoria, precoMin, precoMax, ordem, limit }
+function pesquisarProdutos(filtros = {}) {
+    const params = new URLSearchParams();
+    Object.entries(filtros).forEach(([chave, valor]) => {
+        if (valor !== undefined && valor !== null && String(valor).trim() !== '') {
+            params.append(chave, String(valor).trim());
+        }
+    });
+    const query = params.toString();
+    return requisicao(query ? `${API_URL}?${query}` : API_URL);
+}
+
+// GET /resumo: totais gerais e quantidade por categoria (consulta agregada do banco)
+function obterResumo() {
+    return requisicao(`${API_URL}/resumo`);
+}
+
+// GET /filtros: marcas e categorias existentes
+function obterOpcoesFiltro() {
+    return requisicao(`${API_URL}/filtros`);
+}
+
 // GET por id: um único produto
 function buscarProduto(id) {
     return requisicao(`${API_URL}/${encodeURIComponent(id)}`);

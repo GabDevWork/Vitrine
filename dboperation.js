@@ -16,19 +16,92 @@ function getPool() {
 
 const COLUNAS = 'id, nome, marca, categoria, descricao, preco, estoque, imagem';
 
-// Retorna os produtos mais recentes primeiro (id decrescente). Com "limite", traz só os N últimos.
-async function getProdutos(limite) {
+// Ordenações permitidas (lista fixa: o valor nunca vem direto do usuário para o SQL).
+const ORDENACOES = {
+    recentes: 'id DESC',
+    antigos: 'id ASC',
+    nome: 'nome ASC',
+    preco_asc: 'preco ASC, id DESC',
+    preco_desc: 'preco DESC, id DESC',
+    estoque: 'estoque DESC, id DESC'
+};
+
+// Lista produtos com filtros opcionais (todos combináveis):
+//   limite, q (nome/descrição), marca, categoria, precoMin, precoMax, ordem.
+// Sem filtros, traz tudo do mais recente para o mais antigo.
+async function getProdutos(filtros = {}) {
+    const { limite, q, marca, categoria, precoMin, precoMax, ordem } = filtros;
     const pool = await getPool();
     const request = pool.request();
-    let query;
+    const where = [];
+
+    if (q) {
+        // escapa os curingas do LIKE digitados pelo usuário
+        request.input('q', sql.NVarChar(200), `%${q.replace(/[\[%_]/g, '[$&]')}%`);
+        where.push('(nome LIKE @q OR descricao LIKE @q)');
+    }
+    if (marca) {
+        request.input('marca', sql.NVarChar(50), marca);
+        where.push('marca = @marca');
+    }
+    if (categoria) {
+        request.input('categoria', sql.NVarChar(50), categoria);
+        where.push('categoria = @categoria');
+    }
+    if (precoMin !== undefined) {
+        request.input('precoMin', sql.Decimal(10, 2), precoMin);
+        where.push('preco >= @precoMin');
+    }
+    if (precoMax !== undefined) {
+        request.input('precoMax', sql.Decimal(10, 2), precoMax);
+        where.push('preco <= @precoMax');
+    }
+
+    let top = '';
     if (limite) {
         request.input('limite', sql.Int, limite);
-        query = `SELECT TOP (@limite) ${COLUNAS} FROM produtos ORDER BY id DESC`;
-    } else {
-        query = `SELECT ${COLUNAS} FROM produtos ORDER BY id DESC`;
+        top = 'TOP (@limite) ';
     }
-    const resultado = await request.query(query);
+
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const orderSql = ORDENACOES[ordem] || ORDENACOES.recentes;
+    const resultado = await request.query(
+        `SELECT ${top}${COLUNAS} FROM produtos ${whereSql} ORDER BY ${orderSql}`);
     return resultado.recordset;
+}
+
+// Consulta agregada para o painel: totais gerais e quantidade/valor por categoria.
+async function getResumo() {
+    const pool = await getPool();
+    const totais = await pool.request().query(
+        `SELECT COUNT(*) AS totalProdutos,
+                ISNULL(SUM(estoque), 0) AS totalItensEstoque,
+                ISNULL(SUM(preco * estoque), 0) AS valorEstoque,
+                ISNULL(AVG(preco), 0) AS precoMedio,
+                ISNULL(MIN(preco), 0) AS menorPreco,
+                ISNULL(MAX(preco), 0) AS maiorPreco
+         FROM produtos`);
+    const porCategoria = await pool.request().query(
+        `SELECT ISNULL(NULLIF(categoria, ''), 'Sem categoria') AS categoria,
+                COUNT(*) AS quantidade,
+                ISNULL(SUM(preco * estoque), 0) AS valorEstoque
+         FROM produtos
+         GROUP BY ISNULL(NULLIF(categoria, ''), 'Sem categoria')
+         ORDER BY quantidade DESC, categoria ASC`);
+    return { ...totais.recordset[0], porCategoria: porCategoria.recordset };
+}
+
+// Valores distintos de marca e categoria (alimentam os filtros da tela).
+async function getOpcoesFiltro() {
+    const pool = await getPool();
+    const marcas = await pool.request().query(
+        "SELECT DISTINCT marca FROM produtos WHERE marca IS NOT NULL AND marca <> '' ORDER BY marca");
+    const categorias = await pool.request().query(
+        "SELECT DISTINCT categoria FROM produtos WHERE categoria IS NOT NULL AND categoria <> '' ORDER BY categoria");
+    return {
+        marcas: marcas.recordset.map((r) => r.marca),
+        categorias: categorias.recordset.map((r) => r.categoria)
+    };
 }
 
 // Retorna um único produto (ou undefined se não existir).
@@ -90,6 +163,8 @@ async function deleteProduto(id) {
 
 module.exports = {
     getProdutos,
+    getResumo,
+    getOpcoesFiltro,
     getProduto,
     addProduto,
     updateProduto,

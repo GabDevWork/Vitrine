@@ -180,3 +180,72 @@ main {
         font-size: 1.5rem;
     }
 }
+
+/* Catálogo: título, painel de resumo, gráfico de barras e tabela */
+.titulo-pagina {
+    font-size: 1.6rem;
+    font-weight: 800;
+}
+
+.resumo-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+}
+
+.resumo-titulo {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--cor-texto-suave);
+    font-weight: 700;
+}
+
+.resumo-valor {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--cor-escura);
+}
+
+.barra-linha {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.barra-rotulo {
+    width: 140px;
+    flex-shrink: 0;
+    font-size: 0.9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.barra-trilho {
+    flex: 1;
+    background: #e2e8f0;
+    border-radius: 6px;
+    height: 14px;
+    overflow: hidden;
+}
+
+.barra-preenchimento {
+    background: var(--cor-primaria);
+    height: 100%;
+    border-radius: 6px;
+}
+
+.barra-valor {
+    width: 32px;
+    text-align: right;
+    font-weight: 700;
+}
+
+.tabela-foto {
+    width: 56px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 4px;
+    background: #e9ecef;
+}

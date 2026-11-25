@@ -37,18 +37,60 @@ function rota(funcao) {
     };
 }
 
-// GET /api/produtos        -> todos os produtos (mais recentes primeiro)
-// GET /api/produtos?limit=12 -> apenas os 12 últimos produtos salvos
+// Converte um parâmetro de query em número (ou undefined se não foi informado).
+function lerNumero(valor) {
+    if (valor === undefined || valor === '') return undefined;
+    const n = Number(valor);
+    return Number.isFinite(n) ? n : NaN;
+}
+
+// GET /api/produtos -> lista produtos (mais recentes primeiro). Filtros opcionais e combináveis:
+//   ?limit=12            apenas os N últimos
+//   ?q=texto             busca no nome e na descrição
+//   ?marca=Acme          marca exata
+//   ?categoria=Áudio     categoria exata
+//   ?precoMin=100&precoMax=500   faixa de preço
+//   ?ordem=recentes|antigos|nome|preco_asc|preco_desc|estoque
 router.route('/produtos').get(rota(async (request, response) => {
-    let limite;
-    if (request.query.limit !== undefined) {
-        limite = Number(request.query.limit);
+    const { limit, q, marca, categoria, precoMin, precoMax, ordem } = request.query;
+    const filtros = {};
+
+    if (limit !== undefined) {
+        const limite = Number(limit);
         if (!Number.isInteger(limite) || limite < 1 || limite > 1000) {
             return response.status(400).json({ erro: 'O parâmetro limit deve ser um inteiro entre 1 e 1000.' });
         }
+        filtros.limite = limite;
     }
-    const produtos = await dbOperation.getProdutos(limite);
-    response.json(produtos);
+
+    const min = lerNumero(precoMin);
+    const max = lerNumero(precoMax);
+    if (Number.isNaN(min) || Number.isNaN(max) || min < 0 || max < 0) {
+        return response.status(400).json({ erro: 'precoMin e precoMax devem ser números maiores ou iguais a zero.' });
+    }
+    if (min !== undefined && max !== undefined && min > max) {
+        return response.status(400).json({ erro: 'precoMin não pode ser maior que precoMax.' });
+    }
+    if (min !== undefined) filtros.precoMin = min;
+    if (max !== undefined) filtros.precoMax = max;
+
+    if (typeof q === 'string' && q.trim()) filtros.q = q.trim().slice(0, 200);
+    if (typeof marca === 'string' && marca.trim()) filtros.marca = marca.trim();
+    if (typeof categoria === 'string' && categoria.trim()) filtros.categoria = categoria.trim();
+    if (typeof ordem === 'string') filtros.ordem = ordem;
+
+    response.json(await dbOperation.getProdutos(filtros));
+}));
+
+// GET /api/produtos/resumo -> consulta agregada (totais e quantidade por categoria)
+// (declarada antes de /produtos/:id para "resumo" não ser lido como id)
+router.route('/produtos/resumo').get(rota(async (request, response) => {
+    response.json(await dbOperation.getResumo());
+}));
+
+// GET /api/produtos/filtros -> marcas e categorias existentes (para montar os filtros)
+router.route('/produtos/filtros').get(rota(async (request, response) => {
+    response.json(await dbOperation.getOpcoesFiltro());
 }));
 
 // GET /api/produtos/:id -> um único produto
